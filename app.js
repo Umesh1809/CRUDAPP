@@ -7,9 +7,12 @@ app.use(bodyparser.json());
 
 const detailRoute =require('./routers/router');
 app.use('/',detailRoute);
+app.get('/', (req, res) => {
+  res.send('Hello world');
+});
 
 
 
-app.listen(3000, (req,res) => {
+app.listen(5000, (req,res) => {
     console.log("server running...")
 });
