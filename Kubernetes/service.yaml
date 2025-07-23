@@ -10,5 +10,3 @@ spec:
     - port: 80
       targetPort: 32778
       nodePort: 30007
-  imagePullSecrets:
-    - name: regcred
