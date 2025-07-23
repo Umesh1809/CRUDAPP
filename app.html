@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Coffee Shop</title>
+</head>
+<body>
+  <h1>Add a Coffee</h1>
+  <form id="coffeeForm">
+    <label>Name:</label><br>
+    <input type="text" name="Name" required><br><br>
+
+    <label>Flavour:</label><br>
+    <input type="text" name="flavour" required><br><br>
+
+    <label>Cost:</label><br>
+    <input type="text" name="cost" required><br><br>
+
+    <button type="submit">Submit</button>
+  </form>
+
+  <script>
+    document.getElementById('coffeeForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const form = e.target;
+      const data = {
+        Name: form.Name.value,
+        flavour: form.flavour.value,
+        cost: form.cost.value
+      };
+
+      const response = await fetch('/add-coffee', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(data)
+      });
+
+      const result = await response.json();
+      alert(result.message);
+    });
+  </script>
+</body>
+</html>
