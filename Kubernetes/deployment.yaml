@@ -21,3 +21,5 @@ spec:
       image: docker.io/umesh1809/crudapp
       ports:
         - containerPort: 32777
+      imagePullSecrets:
+        - name: regcred
