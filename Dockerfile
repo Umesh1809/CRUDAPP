@@ -12,7 +12,7 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 # Create app directory
-WORKDIR /app.js
+WORKDIR /app
 
 # Copy package files and install dependencies
 COPY package*.json ./
@@ -21,6 +21,6 @@ RUN npm install
 # Copy the rest of your app
 COPY . .
 
-EXPOSE 5000
+EXPOSE 32778
 
 CMD [ "npm", "start" ]
