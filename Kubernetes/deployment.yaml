@@ -15,11 +15,12 @@ spec:
   template:
     metadata:
       labels:
-        app: coffeshop
-  containers:
-    - name: crudapplication
-      image: docker.io/umesh1809/crudapp
-      ports:
-        - containerPort: 32778
-      imagePullSecrets:
-        - name: regcred
+        app: crudapp  # Also fixed label to match selector
+    spec:
+      containers:
+        - name: crudapplication
+          image: docker.io/umesh1809/crudapp
+          ports:
+            - containerPort: 32778
+          imagePullSecrets:
+            - name: regcred
