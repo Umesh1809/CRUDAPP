@@ -15,12 +15,12 @@ spec:
   template:
     metadata:
       labels:
-        app: crudapp  # Also fixed label to match selector
+        app: crudapp
     spec:
+      imagePullSecrets:
+        - name: regcred
       containers:
         - name: crudapplication
           image: docker.io/umesh1809/crudapp
           ports:
             - containerPort: 32778
-          imagePullSecrets:
-            - name: regcred
