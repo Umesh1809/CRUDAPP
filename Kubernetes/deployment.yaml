@@ -4,23 +4,22 @@ metadata:
   name: crudapp
 spec:
   replicas: 3
-  selector:
-    matchLabels:
-      app: crudapp
   strategy:
     type: RollingUpdate
     rollingUpdate:
       maxSurge: 1
       maxUnavailable: 1
+  selector:
+    matchLabels:
+      app: crudapp
   template:
     metadata:
       labels:
         app: coffeshop
-    spec:
-      containers:
-        - name: crudapplication
-          image: docker.io/umesh1809/crudapp
-          ports:
-            - containerPort: 32778
+  containers:
+    - name: crudapplication
+      image: docker.io/umesh1809/crudapp
+      ports:
+        - containerPort: 32778
       imagePullSecrets:
         - name: regcred
