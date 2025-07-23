@@ -4,14 +4,14 @@ metadata:
   name: crudapp
 spec:
   replicas: 3
-  selector:
-    matchLabels:
-      app: crudapp
   strategy:
     type: RollingUpdate
     rollingUpdate:
       maxSurge: 1
       maxUnavailable: 1
+  selector:
+    matchLabels:
+      app: crudapp
   template:
     metadata:
       labels:
