@@ -9,5 +9,3 @@ spec:
       image: docker.io/umesh1809/newapp1:latest
       ports:
         - containerPort: 32777
-    imagePullSecrets:
-        - name: regcred    

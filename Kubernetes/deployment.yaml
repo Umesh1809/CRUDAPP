@@ -1,21 +1,23 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: coffeshop
+  name: crudapp
 spec:
   replicas: 3
   selector:
     matchLabels:
-      app: coffeshop
+      app: crudapp
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 1
   template:
     metadata:
       labels:
         app: coffeshop
-    spec:
-      containers:
-        - name: crudapplication
-          image: umesh1809/crudapp
+  containers:
+    - name: crudapplication
+      image: docker.io/umesh1809/crudapp
       ports:
-            - containerPort: 32778
-      imagePullSecrets:
-        - name: regcred
+        - containerPort: 32777
