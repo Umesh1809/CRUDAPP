@@ -16,11 +16,10 @@ spec:
     metadata:
       labels:
         app: crudapp
-    spec:
-      imagePullSecrets:
+  imagePullSecrets:
         - name: regcred
-      containers:
-        - name: crudapplication
-          image: docker.io/umesh1809/crudapp
-          ports:
-            - containerPort: 32778
+  containers:
+    - name: crudapplication
+      image: docker.io/umesh1809/crudapp
+      ports:
+        - containerPort: 32778
