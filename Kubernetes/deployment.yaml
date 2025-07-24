@@ -16,10 +16,16 @@ spec:
     metadata:
       labels:
         app: crudapp
-  imagePullSecrets:
-        - name: regcred
+    spec:
       containers:
         - name: crudapplication
           image: docker.io/umesh1809/crudapp
           ports:
-            - containerPort: 32778
+            - containerPort: 32777
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "250m"
+            limits:
+              memory: "256Mi"
+              cpu: "500m"
