@@ -8,5 +8,5 @@ spec:
     app: crudapp
   ports:
     - port: 80
-      targetPort: 32778
+      targetPort: 61944
       nodePort: 30007
