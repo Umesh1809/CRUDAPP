@@ -1,4 +1,4 @@
-// require('./mongodb');
+require('./mongodb');
 const express = require('express');
 const app = express();
 const bodyparser = require('body-parser');
@@ -10,8 +10,8 @@ app.use(bodyparser.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
 // API routes
-// const detailRoute = require('./routers/router');
-// app.use('/', detailRoute);
+const detailRoute = require('./routers/router');
+app.use('/', detailRoute);
 
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname,'app.html'));
