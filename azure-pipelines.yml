@@ -5,10 +5,7 @@ pool:
   vmImage: 'ubuntu-latest'
 
 variables:
-  # Change this line to match your screenshot:
-  dockerRegistryServiceConnection: 'k8spraticeacr' 
-  
-  # Keep these exactly the same as before:
+  dockerRegistryServiceConnection: 'k8spraticeacr' # Matched to your dashboard screenshot
   azureServiceConnection: 'aks-devops-connection'
   imageRepository: 'umeshcrudapp'
   containerRegistry: 'k8spraticeacr.azurecr.io'
@@ -17,8 +14,10 @@ variables:
   resourceGroup: 'k8spratice'
   clusterName: 'k8s-pratice'
 
-
 stages:
+# ---------------------------------------------------------
+# STAGE 1: AUTOMATIC BUILD (CI)
+# ---------------------------------------------------------
 - stage: Build
   displayName: "Automated Build and Push"
   jobs:
@@ -35,6 +34,17 @@ stages:
           $(tag)
           latest
 
+    # 🟢 NEW STEP: Save your local deployment.yaml file into pipeline storage
+    - task: PublishPipelineArtifact@1
+      displayName: 'Publish Kubernetes Manifest File'
+      inputs:
+        targetPath: '$(System.DefaultWorkingDirectory)/deployment.yaml'
+        artifact: 'manifests'
+        publishLocation: 'pipeline'
+
+# ---------------------------------------------------------
+# STAGE 2: AUTOMATIC DEPLOYMENT (CD)
+# ---------------------------------------------------------
 - stage: Deploy
   displayName: "Automated Rolling Update to AKS"
   dependsOn: Build
@@ -42,6 +52,14 @@ stages:
   jobs:
   - job: Deploy
     steps:
+    # 🟢 NEW STEP: Pull the manifest file down into the deployment agent container
+    - task: DownloadPipelineArtifact@2
+      displayName: 'Download Published Manifest File'
+      inputs:
+        buildType: 'current'
+        artifactName: 'manifests'
+        targetPath: '$(Pipeline.Workspace)/manifests'
+
     - task: AzureCLI@2
       displayName: 'Fetch AKS Cluster Credentials'
       inputs:
@@ -60,7 +78,8 @@ stages:
         azureResourceGroup: '$(resourceGroup)'
         kubernetesCluster: '$(clusterName)'
         namespace: 'default'
+        # 🟢 UPDATED: Reads the file straight out of the download target workspace path
         manifests: |
-          $(System.DefaultWorkingDirectory)/deployment.yaml
+          $(Pipeline.Workspace)/manifests/deployment.yaml
         containers: |
           $(containerRegistry)/$(imageRepository):$(tag)
