@@ -1,13 +1,6 @@
-// ⚡ Modified connection logic to prevent server boot freezes:
-mongoose.connect('mongodb://mongodb-service:27017/crudapp', {
-    serverSelectionTimeoutMS: 5000 // Time out after 5 seconds instead of hanging forever
-}).then(() => {
-    console.log("Connected to MongoDB successfully!");
-}).catch(err => {
-    console.error("MongoDB connection failed, but keeping server alive:", err.message);
-});
+const mongoose = require('mongoose');
 
-// Keep this outside the database callback block so the port opens instantly!
-app.listen(PORT, '0.0.0.0', () => {
-    console.log(`Server is live on port ${PORT}`);
-});
+// 🟢 CHANGED: Replaced 'localhost' with your cluster service name 'mongodb-service'
+mongoose.connect('mongodb://mongodb-service:27017/crudapp')
+  .then(() => console.log('Successfully connected to MongoDB inside AKS!'))
+  .catch(err => console.error('Database connection tracking block:', err));
