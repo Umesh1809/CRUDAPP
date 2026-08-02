@@ -13,8 +13,12 @@ app.use(express.static(path.join(__dirname, 'public')));
 const detailRoute = require('./routers/router');
 app.use('/', detailRoute);
 
+// app.get('/', (req, res) => {
+//   res.sendFile(path.join(__dirname,'app.html'));
+// });
+
 app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname,'app.html'));
+    res.sendFile(path.join(__dirname, 'app.html'));
 });
 
 // // Force your code to listen on the exact port Azure expects
