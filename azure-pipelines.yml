@@ -79,5 +79,7 @@ stages:
         namespace: 'default'
         manifests: |
           $(Pipeline.Workspace)/manifests/deployment.yaml
+          $(System.DefaultWorkingDirectory)/Kubernetes/service.yaml # 🟢 Added this line
         containers: |
           $(containerRegistry)/$(imageRepository):$(tag)
+
