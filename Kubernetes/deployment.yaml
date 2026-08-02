@@ -5,14 +5,12 @@ metadata:
   labels:
     app: umeshcrudapp
 spec:
-  replicas: 3 # Increased to 3 to effectively demonstrate a rolling change
-  # --- ROLLING UPDATE STRATEGY CONFIGURATION ---
+  replicas: 3
   strategy:
     type: RollingUpdate
     rollingUpdate:
-      maxSurge: 1        # Spins up exactly 1 extra pod during update
-      maxUnavailable: 0  # Guarantees zero downtime by keeping old pods alive
-  # ---------------------------------------------
+      maxSurge: 1
+      maxUnavailable: 0
   selector:
     matchLabels:
       app: umeshcrudapp
