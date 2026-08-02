@@ -5,7 +5,7 @@ pool:
   vmImage: 'ubuntu-latest'
 
 variables:
-  dockerRegistryServiceConnection: 'k8spraticeacr' # Matched to your dashboard screenshot
+  dockerRegistryServiceConnection: 'k8spraticeacr' 
   azureServiceConnection: 'aks-devops-connection'
   imageRepository: 'umeshcrudapp'
   containerRegistry: 'k8spraticeacr.azurecr.io'
@@ -34,11 +34,11 @@ stages:
           $(tag)
           latest
 
-    # 🟢 NEW STEP: Save your local deployment.yaml file into pipeline storage
+    # 🟢 FIXED PATH: Added /Kubernetes/ to target the file correctly
     - task: PublishPipelineArtifact@1
       displayName: 'Publish Kubernetes Manifest File'
       inputs:
-        targetPath: '$(System.DefaultWorkingDirectory)/deployment.yaml'
+        targetPath: '$(System.DefaultWorkingDirectory)/Kubernetes/deployment.yaml'
         artifact: 'manifests'
         publishLocation: 'pipeline'
 
@@ -52,7 +52,6 @@ stages:
   jobs:
   - job: Deploy
     steps:
-    # 🟢 NEW STEP: Pull the manifest file down into the deployment agent container
     - task: DownloadPipelineArtifact@2
       displayName: 'Download Published Manifest File'
       inputs:
@@ -78,7 +77,6 @@ stages:
         azureResourceGroup: '$(resourceGroup)'
         kubernetesCluster: '$(clusterName)'
         namespace: 'default'
-        # 🟢 UPDATED: Reads the file straight out of the download target workspace path
         manifests: |
           $(Pipeline.Workspace)/manifests/deployment.yaml
         containers: |
