@@ -1,31 +1,28 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: crudapp
+  name: umeshcrudapp-deployment
+  labels:
+    app: umeshcrudapp
 spec:
-  replicas: 1
+  replicas: 3 # Increased to 3 to effectively demonstrate a rolling change
+  # --- ROLLING UPDATE STRATEGY CONFIGURATION ---
   strategy:
     type: RollingUpdate
     rollingUpdate:
-      maxSurge: 1
-      maxUnavailable: 1
+      maxSurge: 1        # Spins up exactly 1 extra pod during update
+      maxUnavailable: 0  # Guarantees zero downtime by keeping old pods alive
+  # ---------------------------------------------
   selector:
     matchLabels:
-      app: crudapp
+      app: umeshcrudapp
   template:
     metadata:
       labels:
-        app: crudapp
-    spec:
-      containers:
-        - name: crudapplication
-          image: docker.io/umesh1809/crudapp:1.0.1
-          ports:
-            - containerPort: 61944
-          resources:
-            requests:
-              memory: "128Mi"
-              cpu: "250m"
-            limits:
-              memory: "256Mi"
-              cpu: "500m"
+        app: umeshcrudapp
+  spec:
+    containers:
+    - name: umeshcrudapp-container
+      image: k8spraticeacr.azurecr.io/umeshcrudapp:latest
+      ports:
+      - containerPort: 32778
