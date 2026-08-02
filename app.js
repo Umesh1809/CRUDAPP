@@ -17,6 +17,8 @@ app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname,'app.html'));
 });
 
-app.listen(32778, '0.0.0.0', () => {
-  console.log("Server running");
+// Force your code to listen on the exact port Azure expects
+const PORT = 32778; 
+app.listen(PORT, '0.0.0.0', () => {
+    console.log(`Server is running globally on port ${PORT}`);
 });
