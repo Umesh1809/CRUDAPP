@@ -7,6 +7,7 @@ pool:
 variables:
   dockerRegistryServiceConnection: 'k8spraticeacr' 
   azureServiceConnection: 'aks-devops-connection'
+  sonarQubeServiceConnection: 'sonarqube-service-connection' # Matches Step 1
   imageRepository: 'umeshcrudapp'
   containerRegistry: 'k8spraticeacr.azurecr.io'
   dockerfilePath: '$(Build.SourcesDirectory)/Dockerfile'
@@ -15,40 +16,93 @@ variables:
   clusterName: 'k8s-pratice'
 
 stages:
-# ---------------------------------------------------------
-# STAGE 1: AUTOMATIC BUILD (CI)
-# ---------------------------------------------------------
+# =========================================================
+# STAGE 1: AUTOMATIC BUILD, TEST, AND SECURITY SCANS (CI)
+# =========================================================
 - stage: Build
-  displayName: "Automated Build and Push"
+  displayName: "Automated Build, Test, and Scan"
   jobs:
   - job: Build
     steps:
-    - task: Docker@2
-      displayName: 'Build & Push Docker Image to ACR'
+    # 🟢 1. INSTALL NODE & RUN CODE TESTS
+    - task: NodeTool@0
+      displayName: 'Install Node.js'
       inputs:
-        command: 'buildAndPush'
+        versionSpec: '22.x'
+
+    - script: |
+        npm install
+        npm test
+      displayName: 'Run Application Unit Tests'
+      continueOnError: false # ⚡ Stops the pipeline immediately if code tests fail
+
+    # 🟢 2. SONARQUBE ANALYSIS (STATIC APPLICATION SECURITY TESTING - SAST)
+    - task: SonarQubePrepare@5
+      displayName: 'Prepare SonarQube Analysis'
+      inputs:
+        SonarQube: '$(sonarQubeServiceConnection)'
+        scannerMode: 'CLI'
+        configMode: 'manual'
+        cliProjectKey: 'umesh-crudapp'
+        cliProjectName: 'CRUDAPP'
+        cliSources: '.'
+
+    - task: SonarQubeAnalyze@5
+      displayName: 'Run SonarQube Code Scan'
+
+    - task: SonarQubePublish@5
+      displayName: 'Publish SonarQube Quality Gate Quality Results'
+      inputs:
+        pollingTimeoutSec: '300'
+
+    # 🟢 3. BUILD THE DOCKER IMAGE LOCALLY
+    - task: Docker@2
+      displayName: 'Build Docker Image for Scanning'
+      inputs:
+        command: 'build'
         repository: '$(imageRepository)'
-        Dockerfile: '$(dockerfilePath)'
+        dockerfile: '$(dockerfilePath)'
+        tags: '$(tag)'
+
+    # 🟢 4. TRIVY CONTAINER VULNERABILITY SCAN
+    - script: |
+        # Download and install the latest version of Trivy
+        sudo apt-get install wget apt-transport-https gnupg lsb-release -y
+        wget -qO - https://github.io | gpg --dearmor | sudo tee /etc/apt/keyrings/trivy.gpg > /dev/null
+        echo "deb [signed-by=/etc/apt/keyrings/trivy.gpg] https://github.io $(lsb_release -sc) main" | sudo tee /etc/apt/sources.list.d/trivy.list
+        sudo apt-get update && sudo apt-get install trivy -y
+        
+        # Scan the locally built image for High and Critical vulnerabilities
+        trivy image --severity HIGH,CRITICAL --exit-code 1 $(imageRepository):$(tag)
+      displayName: 'Trivy: Scan Container Image for Vulnerabilities'
+      continueOnError: false # ⚡ Blocks pushing to ACR if your container contains critical security risks
+
+    # 🟢 5. PUSH SECURE IMAGE TO ACR
+    - task: Docker@2
+      displayName: 'Push Verified Image to ACR'
+      inputs:
+        command: 'push'
+        repository: '$(imageRepository)'
         containerRegistry: '$(dockerRegistryServiceConnection)'
         tags: |
           $(tag)
           latest
 
-    # 🟢 FIXED PATH: Added /Kubernetes/ to target the file correctly
+    # 6. Publish Manifests for the deployment stage
     - task: PublishPipelineArtifact@1
       displayName: 'Publish Kubernetes Manifest File'
       inputs:
-        targetPath: '$(System.DefaultWorkingDirectory)/Kubernetes/deployment.yaml'
+        targetPath: '$(System.DefaultWorkingDirectory)/Kubernetes'
         artifact: 'manifests'
         publishLocation: 'pipeline'
 
-# ---------------------------------------------------------
+# =========================================================
 # STAGE 2: AUTOMATIC DEPLOYMENT (CD)
-# ---------------------------------------------------------
+# =========================================================
 - stage: Deploy
   displayName: "Automated Rolling Update to AKS"
   dependsOn: Build
-  condition: succeeded()
+  condition: succeeded() # ⚡ Only triggers if tests, SonarQube, and Trivy scans ALL pass cleanly
   jobs:
   - job: Deploy
     steps:
@@ -79,7 +133,6 @@ stages:
         namespace: 'default'
         manifests: |
           $(Pipeline.Workspace)/manifests/deployment.yaml
-          $(System.DefaultWorkingDirectory)/Kubernetes/service.yaml # 🟢 Added this line
+          $(Pipeline.Workspace)/manifests/service.yaml
         containers: |
           $(containerRegistry)/$(imageRepository):$(tag)
-
