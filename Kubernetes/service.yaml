@@ -1,12 +1,14 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: crudapp-service
+  name: umeshcrudapp-service
+  labels:
+    app: umeshcrudapp
 spec:
-  type: NodePort
+  type: LoadBalancer
   selector:
-    app: crudapp
+    app: umeshcrudapp
   ports:
-    - port: 80
-      targetPort: 61944
-      nodePort: 30007
+  - protocol: TCP
+    port: 80
+    targetPort: 32778
