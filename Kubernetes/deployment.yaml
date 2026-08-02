@@ -21,6 +21,7 @@ spec:
     spec:
       containers:
       - name: umeshcrudapp-container
-        image: k8spraticeacr.azurecr.io/umeshcrudapp:latest
+        # 🟢 Change ':latest' to the dynamic tag variable so your pipeline updates it on every push:
+        image: k8spraticeacr.azurecr.io/umeshcrudapp:$(Build.BuildId) 
         ports:
         - containerPort: 32778
