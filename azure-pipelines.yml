@@ -5,83 +5,78 @@ pool:
   vmImage: 'ubuntu-latest'
 
 variables:
+  # Service connections (Ensure these match your Azure DevOps dashboard names exactly)
   dockerRegistryServiceConnection: 'k8spraticeacr' 
   azureServiceConnection: 'aks-devops-connection'
-  sonarQubeServiceConnection: 'sonarqube-service-connection' # Matches Step 1
+  
+  # Application infrastructure configuration variables
   imageRepository: 'umeshcrudapp'
   containerRegistry: 'k8spraticeacr.azurecr.io'
   dockerfilePath: '$(Build.SourcesDirectory)/Dockerfile'
   tag: '$(Build.BuildId)'
   resourceGroup: 'k8spratice'
   clusterName: 'k8s-pratice'
+  
+  # 🔐 SECURITY TOKENS: Paste your SonarCloud token value here
+  sonarToken: 'your-sonarcloud-token-value-here'
 
 stages:
 # =========================================================
-# STAGE 1: AUTOMATIC BUILD, TEST, AND SECURITY SCANS (CI)
+# STAGE 1: CONTINUOUS INTEGRATION (BUILD, TEST, SCANS)
 # =========================================================
 - stage: Build
-  displayName: "Automated Build, Test, and Scan"
+  displayName: "CI: Build, Test, and Scan"
   jobs:
   - job: Build
     steps:
-    # 🟢 1. INSTALL NODE & RUN CODE TESTS
+    # 1. Dynamically provision Node and npm in the cloud pipeline environment
     - task: NodeTool@0
-      displayName: 'Install Node.js'
+      displayName: 'Install Node.js Environment'
       inputs:
         versionSpec: '22.x'
 
+    # 2. Install application dependencies and run unit tests
     - script: |
         npm install
         npm test
       displayName: 'Run Application Unit Tests'
-      continueOnError: false # ⚡ Stops the pipeline immediately if code tests fail
+      continueOnError: false
 
-    # 🟢 2. SONARQUBE ANALYSIS (STATIC APPLICATION SECURITY TESTING - SAST)
-    # 🟢 Try changing @5 to @4 to bypass version compilation locks
-    - task: SonarQubePrepare@4
-      displayName: 'Prepare SonarQube Analysis'
-      inputs:
-        SonarQube: '$(sonarQubeServiceConnection)'
-        scannerMode: 'CLI'
-        configMode: 'manual'
-        cliProjectKey: 'umesh-crudapp'
-        cliProjectName: 'CRUDAPP'
-        cliSources: '.'
+    # 3. Native SonarQube static code scan (No organization plugin needed)
+    - script: |
+        npx sonarqube-scanner \
+          -Dsonar.host.url="https://sonarcloud.io" \
+          -Dsonar.token="$(sonarToken)" \
+          -Dsonar.projectKey="umesh-crudapp" \
+          -Dsonar.projectName="CRUDAPP" \
+          -Dsonar.sources="."
+      displayName: 'SonarQube: Scan Code Architecture Security'
+      continueOnError: true # Prevents an unconfigured sonar token from halting practice runs
 
-
-    - task: SonarQubeAnalyze@5
-      displayName: 'Run SonarQube Code Scan'
-
-    - task: SonarQubePublish@5
-      displayName: 'Publish SonarQube Quality Gate Quality Results'
-      inputs:
-        pollingTimeoutSec: '300'
-
-    # 🟢 3. BUILD THE DOCKER IMAGE LOCALLY
+    # 4. Compile the local container container target layers
     - task: Docker@2
-      displayName: 'Build Docker Image for Scanning'
+      displayName: 'Build Docker Image for Evaluation'
       inputs:
         command: 'build'
         repository: '$(imageRepository)'
         dockerfile: '$(dockerfilePath)'
         tags: '$(tag)'
 
-    # 🟢 4. TRIVY CONTAINER VULNERABILITY SCAN
+    # 5. Native Trivy runtime binary download and registry scan execution
     - script: |
-        # Download and install the latest version of Trivy
         sudo apt-get install wget apt-transport-https gnupg lsb-release -y
         wget -qO - https://github.io | gpg --dearmor | sudo tee /etc/apt/keyrings/trivy.gpg > /dev/null
         echo "deb [signed-by=/etc/apt/keyrings/trivy.gpg] https://github.io $(lsb_release -sc) main" | sudo tee /etc/apt/sources.list.d/trivy.list
         sudo apt-get update && sudo apt-get install trivy -y
         
-        # Scan the locally built image for High and Critical vulnerabilities
+        # Scan your image container target for major structural flaws
         trivy image --severity HIGH,CRITICAL --exit-code 1 $(imageRepository):$(tag)
-      displayName: 'Trivy: Scan Container Image for Vulnerabilities'
-      continueOnError: false # ⚡ Blocks pushing to ACR if your container contains critical security risks
+      displayName: 'Trivy: Scan Image for High/Critical Risks'
+      continueOnError: false # Breaks the build if your container contains dangerous vulnerabilities
 
-    # 🟢 5. PUSH SECURE IMAGE TO ACR
+    # 6. Push the verified image out to your Azure Container Registry
     - task: Docker@2
-      displayName: 'Push Verified Image to ACR'
+      displayName: 'Push Secure Image to ACR'
       inputs:
         command: 'push'
         repository: '$(imageRepository)'
@@ -90,31 +85,33 @@ stages:
           $(tag)
           latest
 
-    # 6. Publish Manifests for the deployment stage
+    # 7. Package and publish your Kubernetes subfolder configuration files
     - task: PublishPipelineArtifact@1
-      displayName: 'Publish Kubernetes Manifest File'
+      displayName: 'Publish Kubernetes Manifest Folder'
       inputs:
         targetPath: '$(System.DefaultWorkingDirectory)/Kubernetes'
         artifact: 'manifests'
         publishLocation: 'pipeline'
 
 # =========================================================
-# STAGE 2: AUTOMATIC DEPLOYMENT (CD)
+# STAGE 2: CONTINUOUS DEPLOYMENT (AUTOMATED DELIVERY)
 # =========================================================
 - stage: Deploy
-  displayName: "Automated Rolling Update to AKS"
+  displayName: "CD: Rolling Update to AKS"
   dependsOn: Build
-  condition: succeeded() # ⚡ Only triggers if tests, SonarQube, and Trivy scans ALL pass cleanly
+  condition: succeeded() # ⚡ Only triggers if the Build, Test, and Trivy steps pass cleanly
   jobs:
   - job: Deploy
     steps:
+    # 1. Download your workspace manifest drop target folder
     - task: DownloadPipelineArtifact@2
-      displayName: 'Download Published Manifest File'
+      displayName: 'Download Published Manifests'
       inputs:
         buildType: 'current'
         artifactName: 'manifests'
         targetPath: '$(Pipeline.Workspace)/manifests'
 
+    # 2. Login to your South Central US AKS Cluster nodes
     - task: AzureCLI@2
       displayName: 'Fetch AKS Cluster Credentials'
       inputs:
@@ -124,6 +121,7 @@ stages:
         inlineScript: |
           az aks get-credentials --resource-group $(resourceGroup) --name $(clusterName) --overwrite-existing
 
+    # 3. Map your application manifests onto your cluster endpoints
     - task: KubernetesManifest@1
       displayName: 'Execute Zero-Downtime Rollout'
       inputs:
