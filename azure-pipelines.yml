@@ -1,26 +1,20 @@
 trigger:
-- main  # ⚡ AUTOMATION TRIGGER: Runs the entire pipeline automatically on every Git push
+- main
 
 pool:
   vmImage: 'ubuntu-latest'
 
 variables:
-  # Connections (Ensure these match your Azure DevOps Service Connection names exactly)
   dockerRegistryServiceConnection: 'k8spraticeacr-service-connection' 
   azureServiceConnection: 'aks-devops-connection'
-  
-  # Infrastructure configuration
   imageRepository: 'umeshcrudapp'
   containerRegistry: 'k8spraticeacr.azurecr.io'
   dockerfilePath: '$(Build.SourcesDirectory)/Dockerfile'
-  tag: '$(Build.BuildId)' # Automatically assigns a unique number to every build iteration
+  tag: '$(Build.BuildId)'
   resourceGroup: 'k8spratice'
   clusterName: 'k8s-pratice'
 
 stages:
-# ---------------------------------------------------------
-# STAGE 1: AUTOMATIC BUILD (CI)
-# ---------------------------------------------------------
 - stage: Build
   displayName: "Automated Build and Push"
   jobs:
@@ -30,20 +24,17 @@ stages:
       displayName: 'Build & Push Docker Image to ACR'
       inputs:
         command: 'buildAndPush'
-        repository: $(imageRepository)
-        dockerfile: $(dockerfilePath)
-        containerRegistry: $(dockerRegistryServiceConnection)
+        repository: '$(imageRepository)'
+        Dockerfile: '$(dockerfilePath)'
+        containerRegistry: '$(dockerRegistryServiceConnection)'
         tags: |
           $(tag)
           latest
 
-# ---------------------------------------------------------
-# STAGE 2: AUTOMATIC DEPLOYMENT (CD)
-# ---------------------------------------------------------
 - stage: Deploy
   displayName: "Automated Rolling Update to AKS"
   dependsOn: Build
-  condition: succeeded() # ⚡ Only triggers if the Build stage completes cleanly
+  condition: succeeded()
   jobs:
   - job: Deploy
     steps:
