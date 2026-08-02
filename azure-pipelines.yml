@@ -37,7 +37,8 @@ stages:
       continueOnError: false # ⚡ Stops the pipeline immediately if code tests fail
 
     # 🟢 2. SONARQUBE ANALYSIS (STATIC APPLICATION SECURITY TESTING - SAST)
-    - task: SonarQubePrepare@5
+    # 🟢 Try changing @5 to @4 to bypass version compilation locks
+    - task: SonarQubePrepare@4
       displayName: 'Prepare SonarQube Analysis'
       inputs:
         SonarQube: '$(sonarQubeServiceConnection)'
@@ -46,6 +47,7 @@ stages:
         cliProjectKey: 'umesh-crudapp'
         cliProjectName: 'CRUDAPP'
         cliSources: '.'
+
 
     - task: SonarQubeAnalyze@5
       displayName: 'Run SonarQube Code Scan'
