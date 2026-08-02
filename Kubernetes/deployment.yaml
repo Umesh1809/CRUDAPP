@@ -24,3 +24,7 @@ spec:
         image: k8spraticeacr.azurecr.io/umeshcrudapp:latest
         ports:
         - containerPort: 32778
+        # 🟢 ADD THIS ENV BLOCK TO OVERRIDE LOCALHOST
+        env:
+        - name: MONGO_URI
+          value: "mongodb://mongodb-service:27017/crudapp"
