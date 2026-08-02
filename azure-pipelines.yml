@@ -5,7 +5,10 @@ pool:
   vmImage: 'ubuntu-latest'
 
 variables:
-  dockerRegistryServiceConnection: 'k8spraticeacr-service-connection' 
+  # Change this line to match your screenshot:
+  dockerRegistryServiceConnection: 'k8spraticeacr' 
+  
+  # Keep these exactly the same as before:
   azureServiceConnection: 'aks-devops-connection'
   imageRepository: 'umeshcrudapp'
   containerRegistry: 'k8spraticeacr.azurecr.io'
@@ -13,6 +16,7 @@ variables:
   tag: '$(Build.BuildId)'
   resourceGroup: 'k8spratice'
   clusterName: 'k8s-pratice'
+
 
 stages:
 - stage: Build
