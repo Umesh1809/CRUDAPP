@@ -65,16 +65,18 @@ stages:
         tags: '$(tag)'
 
     # 5. Native Trivy runtime binary download and registry scan execution
+    # 🟢 FIXED: Updated installation commands matching Aquasecurity's layout
     - script: |
-        sudo apt-get install wget apt-transport-https gnupg lsb-release -y
-        wget -qO - https://github.io | gpg --dearmor | sudo tee /etc/apt/keyrings/trivy.gpg > /dev/null
-        echo "deb [signed-by=/etc/apt/keyrings/trivy.gpg] https://github.io $(lsb_release -sc) main" | sudo tee /etc/apt/sources.list.d/trivy.list
-        sudo apt-get update && sudo apt-get install trivy -y
+        sudo apt-get update && sudo apt-get install -y wget apt-transport-https gnupg lsb-release
+        wget -qO - https://github.io | gpg --dearmor | sudo tee /usr/share/keyrings/trivy.gpg > /dev/null
+        echo "deb [signed-by=/usr/share/keyrings/trivy.gpg] https://github.io $(lsb_release -sc) main" | sudo tee /etc/apt/sources.list.d/trivy.list
+        sudo apt-get update && sudo apt-get install -y trivy
         
-        # Scan your image container target for major structural flaws
+        # Execute the security scan on your built container image layers
         trivy image --severity HIGH,CRITICAL --exit-code 1 $(imageRepository):$(tag)
       displayName: 'Trivy: Scan Image for High/Critical Risks'
-      continueOnError: false # Breaks the build if your container contains dangerous vulnerabilities
+      continueOnError: false
+
 
     # 6. Push the verified image out to your Azure Container Registry
     - task: Docker@2
