@@ -48,12 +48,12 @@ stages:
         npx sonarqube-scanner \
           -Dsonar.host.url="https://sonarcloud.io" \
           -Dsonar.token="$(sonarToken)" \
-          -Dsonar.organization="your-actual-sonarcloud-organization-name" \ # 🟢 ADD THIS LINE
-          -Dsonar.projectKey="your-exact-project-key-from-sonarcloud" \       # 🟢 UPDATE THIS LINE
+          -Dsonar.projectKey="umesh-crudapp" \
           -Dsonar.projectName="CRUDAPP" \
           -Dsonar.sources="."
       displayName: 'SonarQube: Scan Code Architecture Security'
       continueOnError: true
+
 
     # 4. Compile the local container container target layers
     - task: Docker@2
