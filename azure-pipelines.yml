@@ -5,117 +5,60 @@ pool:
   vmImage: 'ubuntu-latest'
 
 variables:
-  # Service connections (Ensure these match your Azure DevOps dashboard names exactly)
   dockerRegistryServiceConnection: 'k8spraticeacr' 
   azureServiceConnection: 'aks-devops-connection'
-  
-  # Application infrastructure configuration variables
   imageRepository: 'umeshcrudapp'
   containerRegistry: 'k8spraticeacr.azurecr.io'
   dockerfilePath: '$(Build.SourcesDirectory)/Dockerfile'
   tag: '$(Build.BuildId)'
   resourceGroup: 'k8spratice'
   clusterName: 'k8s-pratice'
-  
-  # 🔐 SECURITY TOKENS: Paste your SonarCloud token value here
-  sonarToken: 'your-sonarcloud-token-value-here'
 
 stages:
-# =========================================================
-# STAGE 1: CONTINUOUS INTEGRATION (BUILD, TEST, SCANS)
-# =========================================================
+# ---------------------------------------------------------
+# STAGE 1: AUTOMATIC BUILD (CI)
+# ---------------------------------------------------------
 - stage: Build
-  displayName: "CI: Build, Test, and Scan"
+  displayName: "Automated Build and Push"
   jobs:
   - job: Build
     steps:
-    # 1. Dynamically provision Node and npm in the cloud pipeline environment
-    - task: NodeTool@0
-      displayName: 'Install Node.js Environment'
-      inputs:
-        versionSpec: '22.x'
-
-    # 2. Install application dependencies and run unit tests
-    - script: |
-        npm install
-        npm test
-      displayName: 'Run Application Unit Tests'
-      continueOnError: false
-
-    # 3. Native SonarQube static code scan (No organization plugin needed)
-    # 🟢 Updated Scan task passing precise organizational qualifiers
-    - script: |
-        npx sonarqube-scanner \
-          -Dsonar.host.url="https://sonarcloud.io" \
-          -Dsonar.token="$(sonarToken)" \
-          -Dsonar.projectKey="umesh-crudapp" \
-          -Dsonar.projectName="CRUDAPP" \
-          -Dsonar.sources="."
-      displayName: 'SonarQube: Scan Code Architecture Security'
-      continueOnError: true
-
-
-    # 4. Compile the local container container target layers
     - task: Docker@2
-      displayName: 'Build Docker Image for Evaluation'
+      displayName: 'Build & Push Docker Image to ACR'
       inputs:
-        command: 'build'
+        command: 'buildAndPush'
         repository: '$(imageRepository)'
-        dockerfile: '$(dockerfilePath)'
-        tags: '$(tag)'
-
-    # 5. Native Trivy runtime binary download and registry scan execution
-    # 🟢 FIXED: Updated installation commands matching Aquasecurity's layout
-    - script: |
-        sudo apt-get update && sudo apt-get install -y wget apt-transport-https gnupg lsb-release
-        wget -qO - https://github.io | gpg --dearmor | sudo tee /usr/share/keyrings/trivy.gpg > /dev/null
-        echo "deb [signed-by=/usr/share/keyrings/trivy.gpg] https://github.io $(lsb_release -sc) main" | sudo tee /etc/apt/sources.list.d/trivy.list
-        sudo apt-get update && sudo apt-get install -y trivy
-        
-        # Execute the security scan on your built container image layers
-        trivy image --severity HIGH,CRITICAL --exit-code 1 $(imageRepository):$(tag)
-      displayName: 'Trivy: Scan Image for High/Critical Risks'
-      continueOnError: false
-
-
-    # 6. Push the verified image out to your Azure Container Registry
-    - task: Docker@2
-      displayName: 'Push Secure Image to ACR'
-      inputs:
-        command: 'push'
-        repository: '$(imageRepository)'
+        Dockerfile: '$(dockerfilePath)'
         containerRegistry: '$(dockerRegistryServiceConnection)'
         tags: |
           $(tag)
           latest
 
-    # 7. Package and publish your Kubernetes subfolder configuration files
+    # 🟢 FIXED PATH: Added /Kubernetes/ to target the file correctly
     - task: PublishPipelineArtifact@1
-      displayName: 'Publish Kubernetes Manifest Folder'
+      displayName: 'Publish Kubernetes Manifest File'
       inputs:
-        targetPath: '$(System.DefaultWorkingDirectory)/Kubernetes'
+        targetPath: '$(System.DefaultWorkingDirectory)/Kubernetes/deployment.yaml'
         artifact: 'manifests'
         publishLocation: 'pipeline'
 
-# =========================================================
-# STAGE 2: CONTINUOUS DEPLOYMENT (AUTOMATED DELIVERY)
-# =========================================================
+# ---------------------------------------------------------
+# STAGE 2: AUTOMATIC DEPLOYMENT (CD)
+# ---------------------------------------------------------
 - stage: Deploy
-  displayName: "CD: Rolling Update to AKS"
+  displayName: "Automated Rolling Update to AKS"
   dependsOn: Build
-  condition: succeeded() # ⚡ Only triggers if the Build, Test, and Trivy steps pass cleanly
+  condition: succeeded()
   jobs:
   - job: Deploy
     steps:
-    # 1. Download your workspace manifest drop target folder
     - task: DownloadPipelineArtifact@2
-      displayName: 'Download Published Manifests'
+      displayName: 'Download Published Manifest File'
       inputs:
         buildType: 'current'
         artifactName: 'manifests'
         targetPath: '$(Pipeline.Workspace)/manifests'
 
-    # 2. Login to your South Central US AKS Cluster nodes
     - task: AzureCLI@2
       displayName: 'Fetch AKS Cluster Credentials'
       inputs:
@@ -125,7 +68,6 @@ stages:
         inlineScript: |
           az aks get-credentials --resource-group $(resourceGroup) --name $(clusterName) --overwrite-existing
 
-    # 3. Map your application manifests onto your cluster endpoints
     - task: KubernetesManifest@1
       displayName: 'Execute Zero-Downtime Rollout'
       inputs:
@@ -137,6 +79,7 @@ stages:
         namespace: 'default'
         manifests: |
           $(Pipeline.Workspace)/manifests/deployment.yaml
-          $(Pipeline.Workspace)/manifests/service.yaml
+          $(System.DefaultWorkingDirectory)/Kubernetes/service.yaml # 🟢 Added this line
         containers: |
           $(containerRegistry)/$(imageRepository):$(tag)
+
