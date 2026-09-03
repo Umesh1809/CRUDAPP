@@ -1,0 +1,145 @@
+# # Docker
+# # Build and push an image to Azure Container Registry
+# # https://docs.microsoft.com/azure/devops/pipelines/languages/docker
+
+# trigger:
+# - main
+
+# resources:
+# - repo: self
+
+# variables:
+#   # Container registry service connection established during pipeline creation
+#   dockerRegistryServiceConnection: 'd268608f-4c61-466a-882e-0c4ae0bd4dc9'
+#   imageRepository: 'umeshcrudapp'
+#   containerRegistry: 'k8spraticeacr.azurecr.io'
+#   dockerfilePath: 'Dockerfile'
+#   tag: '$(Build.BuildId)'
+
+#   # Agent VM image name
+#   vmImageName: 'ubuntu-latest'
+
+# stages:
+# - stage: Build
+#   displayName: Build and push stage
+#   jobs:
+#   - job: Build
+#     displayName: Build
+#     pool:
+#       vmImage: $(vmImageName)
+#     steps:
+#     - task: Docker@2
+#       displayName: Build and push an image to container registry
+#       inputs:
+#         command: buildAndPush
+#         repository: $(imageRepository)
+#         dockerfile: $(dockerfilePath)
+#         containerRegistry: $(dockerRegistryServiceConnection)
+#         tags: |
+#           $(tag)
+trigger:
+- main
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+variables:
+  dockerRegistryServiceConnection: 'k8spraticeacr' 
+  azureServiceConnection: 'aks-devops-connection'
+  imageRepository: 'umeshcrudapp'
+  containerRegistry: 'k8spraticeacr.azurecr.io'
+  dockerfilePath: '$(Build.SourcesDirectory)/Dockerfile'
+  tag: '$(Build.BuildId)'
+  resourceGroup: 'k8spratice'
+  clusterName: 'k8s-pratice'
+
+stages:
+# ---------------------------------------------------------
+# STAGE 0: MANUAL GATE (Pre-CI Approval)
+# ---------------------------------------------------------
+- stage: ApproveBuild
+  displayName: "Pre-Build Approval Gate"
+  jobs:
+  - deployment: WaitForApproval
+    displayName: "Hold for Verification"
+    environment: 'Build-Approval' # 👈 Create this environment in DevOps and add your approval check here
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+          - script: echo "Build phase approved. Proceeding to compilation and image creation."
+            displayName: "Gate Passed"
+
+# ---------------------------------------------------------
+# STAGE 1: CI BUILD & PUSH (Depends on Stage 0)
+# ---------------------------------------------------------
+- stage: Build
+  displayName: "Automated Build and Push"
+  dependsOn: ApproveBuild    # 👈 Ensures it waits for approval
+  condition: succeeded()
+  jobs:
+  - job: Build
+    steps:
+    - task: Docker@2
+      displayName: 'Build & Push Docker Image to ACR'
+      inputs:
+        command: 'buildAndPush'
+        repository: '$(imageRepository)'
+        Dockerfile: '$(dockerfilePath)'
+        containerRegistry: '$(dockerRegistryServiceConnection)'
+        tags: |
+          $(tag)
+          latest
+
+    - task: PublishPipelineArtifact@1
+      displayName: 'Publish Kubernetes Manifest File'
+      inputs:
+        targetPath: '$(System.DefaultWorkingDirectory)/Kubernetes/deployment.yaml'
+        artifact: 'manifests'
+        publishLocation: 'pipeline'
+
+# ---------------------------------------------------------
+# STAGE 2: CD DEPLOYMENT (Depends on Stage 1)
+# ---------------------------------------------------------
+- stage: Deploy
+  displayName: "Automated Rolling Update to AKS"
+  dependsOn: Build
+  condition: succeeded()
+  jobs:
+  - deployment: DeployToAKS
+    displayName: 'Deploy to AKS Cluster'
+    environment: 'Production' # 👈 (Optional) Separate approval for production deployment
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+          - task: DownloadPipelineArtifact@2
+            displayName: 'Download Published Manifest File'
+            inputs:
+              buildType: 'current'
+              artifactName: 'manifests'
+              targetPath: '$(Pipeline.Workspace)/manifests'
+
+          - task: AzureCLI@2
+            displayName: 'Fetch AKS Cluster Credentials'
+            inputs:
+              azureSubscription: '$(azureServiceConnection)'
+              scriptType: 'bash'
+              scriptLocation: 'inlineScript'
+              inlineScript: |
+                az aks get-credentials --resource-group $(resourceGroup) --name $(clusterName) --overwrite-existing
+
+          - task: KubernetesManifest@1
+            displayName: 'Execute Zero-Downtime Rollout'
+            inputs:
+              action: 'deploy'
+              connectionType: 'azureResourceManager'
+              azureSubscriptionConnection: '$(azureServiceConnection)'
+              azureResourceGroup: '$(resourceGroup)'
+              kubernetesCluster: '$(clusterName)'
+              namespace: 'default'
+              manifests: |
+                $(Pipeline.Workspace)/manifests/deployment.yaml
+                $(System.DefaultWorkingDirectory)/Kubernetes/service.yaml
+              containers: |
+                $(containerRegistry)/$(imageRepository):$(tag)
